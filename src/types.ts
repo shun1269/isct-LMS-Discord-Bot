@@ -33,4 +33,4 @@ export interface SyncRun {
   complete: boolean;
 }
 
-export type ReminderType = "7d" | "3d" | "2d" | `hourly-${number}`;
+export type ReminderType = "7d" | `hourly-${number}`;

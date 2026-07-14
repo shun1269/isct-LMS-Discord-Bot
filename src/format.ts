@@ -39,8 +39,6 @@ export function formatSyncStatus(lastSync: SyncRun | null): string {
 
 export function reminderTitle(type: ReminderType): string {
   if (type === "7d") return "締切まで7日以内です";
-  if (type === "3d") return "締切まで3日を切りました";
-  if (type === "2d") return "締切まで2日を切りました";
   const hours = Number(/^hourly-(\d+)$/.exec(type)?.[1]);
   return Number.isInteger(hours) && hours >= 1 && hours <= 24
     ? `締切まで${hours}時間を切りました`

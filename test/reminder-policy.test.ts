@@ -9,9 +9,9 @@ describe("reminder policy", () => {
   const now = 2_000_000_000;
   it.each([
     [7 * 86400 + 1, null], [7 * 86400, "7d"],
-    [3 * 86400, "7d"], [3 * 86400 - 1, "3d"],
-    [2 * 86400, "3d"], [2 * 86400 - 1, "2d"],
-    [24 * 3600, "2d"], [24 * 3600 - 1, "hourly-24"], [23 * 3600, "hourly-23"],
+    [3 * 86400, "7d"], [3 * 86400 - 1, "7d"],
+    [2 * 86400, "7d"], [2 * 86400 - 1, "7d"],
+    [24 * 3600, "7d"], [24 * 3600 - 1, "hourly-24"], [23 * 3600, "hourly-23"],
     [3600, "hourly-1"], [3599, "hourly-1"], [0, null], [-1, null],
   ])("remaining %i seconds -> %s", (remaining, expected) => {
     expect(selectReminderType(now + remaining, now)).toBe(expected);
