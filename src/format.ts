@@ -46,11 +46,32 @@ export function buildAssignmentListEmbed(
   return embed.setDescription(lines.join("\n\n"));
 }
 
-const reminderLabels: Record<ReminderType, string> = {
-  "7d": "7日",
-  "24h": "24時間",
-  "3h": "3時間",
-};
+function getReminderTitle(
+  reminderType: ReminderType,
+): string {
+  if (reminderType === "7d") {
+    return "締切まで7日以内です";
+  }
+
+  const match =
+    /^hourly-(\d+)$/.exec(reminderType);
+
+  if (!match?.[1]) {
+    return "課題の締切が近づいています";
+  }
+
+  const hours = Number(match[1]);
+
+  if (hours === 24) {
+    return "締切まで24時間を切りました";
+  }
+
+  if (hours === 1) {
+    return "締切まで1時間を切りました";
+  }
+
+  return `締切まで${hours}時間を切りました`;
+}
 
 function allowedMentionsFromConfig(): NonNullable<MessageCreateOptions["allowedMentions"]> {
   const userMatch = config.discordMention.match(/^<@(\d+)>$/);
@@ -75,8 +96,10 @@ export function buildReminderMessage(
     : "";
 
   const embed = new EmbedBuilder()
-    .setTitle(`締切まで${reminderLabels[reminderType]}です`)
-    .setDescription(
+  .setTitle(
+    getReminderTitle(reminderType)
+  )    
+  .setDescription(
       [
         `**${assignment.courseJa}**`,
         assignment.title,

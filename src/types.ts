@@ -52,4 +52,6 @@ export interface AssignmentRecord {
   isActive: boolean;
 }
 
-export type ReminderType = "7d" | "24h" | "3h";
+export type ReminderType =
+  | "7d"
+  | `hourly-${number}`;
