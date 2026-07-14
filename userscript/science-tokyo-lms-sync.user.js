@@ -18,7 +18,7 @@
 
   // 必ず自分の環境に合わせて変更する。
   const API_BASE = "http://127.0.0.1:3000";
-  const SYNC_TOKEN = "ここを.envのSYNC_TOKENと同じ値に変更";
+  const SYNC_TOKEN = "d91e71ec95e5f71b5762498e38cf2684a9229b79f5472aa66afa1fa0d1246b7c";
   const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
   const ONE_DAY = 24 * 60 * 60;
   const MAX_EVENTS = 50;
