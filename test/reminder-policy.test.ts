@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
-import { allowedMentions } from "../src/format";
+import { allowedMentions, reminderTitle } from "../src/format";
 import { claimReminder, syncAssignments } from "../src/repository";
 import { processReminderCandidate, selectReminderType } from "../src/reminders";
 import { assignment, resetDatabase } from "./helpers";
@@ -9,9 +9,9 @@ describe("reminder policy", () => {
   const now = 2_000_000_000;
   it.each([
     [7 * 86400 + 1, null], [7 * 86400, "7d"],
-    [3 * 86400, "7d"], [3 * 86400 - 1, "7d"],
-    [2 * 86400, "7d"], [2 * 86400 - 1, "7d"],
-    [24 * 3600, "7d"], [24 * 3600 - 1, "hourly-24"], [23 * 3600, "hourly-23"],
+    [3 * 86400, "7d"], [3 * 86400 - 1, "3d"],
+    [2 * 86400, "3d"], [2 * 86400 - 1, "2d"],
+    [24 * 3600, "2d"], [24 * 3600 - 1, "hourly-24"], [23 * 3600, "hourly-23"],
     [3600, "hourly-1"], [3599, "hourly-1"], [0, null], [-1, null],
   ])("remaining %i seconds -> %s", (remaining, expected) => {
     expect(selectReminderType(now + remaining, now)).toBe(expected);
@@ -43,6 +43,13 @@ describe("reminder policy", () => {
 
   it("only selects the current bucket after a long pause", () => {
     expect(selectReminderType(now + 4 * 3600 + 40 * 60, now)).toBe("hourly-5");
+  });
+
+  it("uses the two-day reminder instead of the seven-day reminder inside two days", () => {
+    const type = selectReminderType(now + 36 * 3600, now);
+    expect(type).toBe("2d");
+    expect(type).not.toBe("7d");
+    expect(reminderTitle(type!)).toBe("締切まで2日を切りました");
   });
 
   it("restricts allowed mentions", () => {
