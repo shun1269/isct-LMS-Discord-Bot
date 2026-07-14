@@ -1,41 +1,4 @@
-import { z } from "zod";
-
-export const assignmentSchema = z.object({
-  source: z.string().min(1).max(100),
-  eventId: z.number().int().nonnegative(),
-  courseModuleId: z.number().int().nonnegative().nullable(),
-  course: z.string().min(1).max(500),
-  courseJa: z.string().min(1).max(300),
-  title: z.string().min(1).max(500),
-  deadlineUnix: z.number().int().positive(),
-  deadlineIso: z.iso.datetime(),
-  deadlineJst: z.string().max(100).nullable(),
-  module: z.string().max(100),
-  url: z.url(),
-  overdue: z.boolean(),
-  syncedAt: z.iso.datetime(),
-});
-
-export const syncPayloadSchema = z.object({
-  source: z.string().min(1).max(100),
-  complete: z.boolean().default(true),
-  assignments: z.array(assignmentSchema).max(500),
-}).superRefine((payload, ctx) => {
-  for (const [index, assignment] of payload.assignments.entries()) {
-    if (assignment.source !== payload.source) {
-      ctx.addIssue({
-        code: "custom",
-        path: ["assignments", index, "source"],
-        message: "assignment.source must match payload.source",
-      });
-    }
-  }
-});
-
-export type AssignmentInput = z.infer<typeof assignmentSchema>;
-export type SyncPayload = z.infer<typeof syncPayloadSchema>;
-
-export interface AssignmentRecord {
+export interface AssignmentInput {
   source: string;
   eventId: number;
   courseModuleId: number | null;
@@ -44,14 +7,30 @@ export interface AssignmentRecord {
   title: string;
   deadlineUnix: number;
   deadlineIso: string;
+  deadlineJst: string | null;
   module: string;
   url: string;
   overdue: boolean;
+  syncedAt: string;
+}
+
+export interface SyncPayload {
+  source: string;
+  complete: boolean;
+  assignments: AssignmentInput[];
+}
+
+export interface AssignmentRecord extends Omit<AssignmentInput, "deadlineJst" | "syncedAt"> {
   firstSeenAt: string;
   lastSeenAt: string;
   isActive: boolean;
 }
 
-export type ReminderType =
-  | "7d"
-  | `hourly-${number}`;
+export interface SyncRun {
+  source: string;
+  syncedAt: string;
+  receivedCount: number;
+  complete: boolean;
+}
+
+export type ReminderType = "7d" | `hourly-${number}`;

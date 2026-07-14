@@ -1,0 +1,7 @@
+SYNC_TOKEN=replace-with-a-long-random-string
+DISCORD_BOT_TOKEN=replace-with-discord-bot-token
+DISCORD_PUBLIC_KEY=replace-with-discord-public-key
+DISCORD_APPLICATION_ID=replace-with-application-id
+DISCORD_GUILD_ID=replace-with-guild-id
+DISCORD_CHANNEL_ID=replace-with-channel-id
+DISCORD_MENTION=<@replace-with-user-id>

@@ -1,8 +1,12 @@
 node_modules/
-dist/
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
 .env
-data/*.sqlite
-data/*.sqlite-shm
-data/*.sqlite-wal
+.env.*
+!.env.example
+.wrangler/
+coverage/
 *.log
-.DS_Store
+dist/
+data/

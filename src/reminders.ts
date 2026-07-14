@@ -1,176 +1,48 @@
-import { type SendableChannels } from "discord.js";
-import { config } from "./config.js";
-import { discordClient } from "./discord.js";
-import { buildReminderMessage } from "./format.js";
-import {
-  hasReminderBeenSent,
-  listReminderCandidates,
-  recordReminderSent,
-} from "./repository.js";
-import type { AssignmentRecord, ReminderType } from "./types.js";
+import type { Env } from "./env";
+import { sendReminder } from "./discord-api";
+import { claimReminder, listReminderCandidates, markReminderSent, releaseReminderClaim } from "./repository";
+import type { AssignmentRecord, ReminderType } from "./types";
 
-const HOUR = 60 * 60;
+const HOUR = 3_600;
 const DAY = 24 * HOUR;
 
-/**
- * 残り24時間未満の場合、その時点の通知区分を返す。
- *
- * 例：
- * 残り23時間50分 → hourly-24
- * 残り22時間59分 → hourly-23
- * 残り30分       → hourly-1
- */
-function getHourlyReminderType(
-  remainingSeconds: number,
-): ReminderType | null {
-  if (remainingSeconds <= 0 || remainingSeconds >= DAY) {
-    return null;
-  }
-
-  const remainingHours = Math.ceil(
-    remainingSeconds / HOUR,
-  );
-
-  return `hourly-${remainingHours}`;
-}
-
-function selectReminder(
-  assignment: AssignmentRecord,
-  nowUnix: number,
-): ReminderType | null {
-  const remainingSeconds =
-    assignment.deadlineUnix - nowUnix;
-
-  if (remainingSeconds <= 0) {
-    return null;
-  }
-
-  /*
-   * 締切24時間前以降は、残り時間の区分ごとに通知する。
-   *
-   * reminderTypeが
-   * hourly-24, hourly-23, ..., hourly-1
-   * と変化するため、それぞれ1回だけ通知される。
-   */
+export function selectReminderType(deadlineUnix: number, nowUnix: number): ReminderType | null {
+  const remainingSeconds = deadlineUnix - nowUnix;
+  if (remainingSeconds <= 0) return null;
   if (remainingSeconds < DAY) {
-    const reminderType =
-      getHourlyReminderType(remainingSeconds);
-
-    if (
-      reminderType &&
-      !hasReminderBeenSent(
-        assignment,
-        reminderType,
-      )
-    ) {
-      return reminderType;
-    }
-
-    return null;
+    const hours = Math.min(24, Math.max(1, Math.ceil(remainingSeconds / HOUR)));
+    return `hourly-${hours}`;
   }
-
-  /*
-   * 24時間より前については、7日以内に入った時点で
-   * 1回だけ通知する。
-   */
-  if (
-    remainingSeconds <= 7 * DAY &&
-    !hasReminderBeenSent(assignment, "7d")
-  ) {
-    return "7d";
-  }
-
-  return null;
+  return remainingSeconds <= 7 * DAY ? "7d" : null;
 }
 
-async function getNotificationChannel(): Promise<SendableChannels> {
-  const channel =
-    await discordClient.channels.fetch(
-      config.discordChannelId,
-    );
-
-  if (!channel?.isSendable()) {
-    throw new Error(
-      `DISCORD_CHANNEL_ID does not refer to a sendable channel: ${config.discordChannelId}`,
-    );
-  }
-
-  return channel;
-}
-
-let checking = false;
-
-export async function checkReminders(): Promise<void> {
-  if (checking || !discordClient.isReady()) {
-    return;
-  }
-
-  checking = true;
-
+export async function processReminderCandidate(
+  env: Env,
+  assignment: AssignmentRecord,
+  now: Date,
+  sender: typeof sendReminder = sendReminder,
+): Promise<boolean> {
+  const type = selectReminderType(assignment.deadlineUnix, Math.floor(now.getTime() / 1000));
+  if (!type || !(await claimReminder(env.DB, assignment, type, now))) return false;
   try {
-    const nowUnix = Math.floor(
-      Date.now() / 1000,
-    );
-
-    /*
-     * 7日以内に期限を迎える課題を取得する。
-     */
-    const candidates = listReminderCandidates(
-      nowUnix,
-      nowUnix + 7 * DAY,
-    );
-
-    const channel =
-      await getNotificationChannel();
-
-    for (const assignment of candidates) {
-      const reminderType = selectReminder(
-        assignment,
-        nowUnix,
-      );
-
-      if (!reminderType) {
-        continue;
-      }
-
-      await channel.send(
-        buildReminderMessage(
-          assignment,
-          reminderType,
-        ),
-      );
-
-      recordReminderSent(
-        assignment,
-        reminderType,
-      );
-
-      console.log(
-        `Sent ${reminderType} reminder: ${assignment.courseJa} / ${assignment.title}`,
-      );
-    }
+    await sender(env, assignment, type);
+    await markReminderSent(env.DB, assignment, type, now);
+    console.log("Reminder sent", { eventId: assignment.eventId, reminderType: type });
+    return true;
   } catch (error) {
-    console.error(
-      "Reminder check failed:",
-      error,
-    );
-  } finally {
-    checking = false;
+    await releaseReminderClaim(env.DB, assignment, type);
+    console.error("Reminder delivery failed", { eventId: assignment.eventId, reminderType: type, error: error instanceof Error ? error.message : "unknown error" });
+    return false;
   }
 }
 
-export function startReminderLoop(): NodeJS.Timeout {
-  /*
-   * 起動直後にも1回確認する。
-   */
-  void checkReminders();
-
-  /*
-   * 1分ごとに確認するため、実際の通知時刻には
-   * 最大で約1分のずれが生じる。
-   */
-  return setInterval(
-    () => void checkReminders(),
-    60_000,
-  );
+export async function checkReminders(env: Env, now = new Date()): Promise<void> {
+  const nowUnix = Math.floor(now.getTime() / 1000);
+  console.log("Reminder cron started", { now: now.toISOString() });
+  const candidates = await listReminderCandidates(env.DB, nowUnix, nowUnix + 7 * DAY);
+  let sent = 0;
+  for (const assignment of candidates) {
+    if (await processReminderCandidate(env, assignment, now)) sent += 1;
+  }
+  console.log("Reminder cron finished", { candidates: candidates.length, sent });
 }

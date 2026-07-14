@@ -3,30 +3,33 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Science Tokyo LMS assignments sync API and Discord reminder bot",
+  "description": "Cloudflare Worker that syncs Science Tokyo LMS assignments and sends Discord reminders",
   "engines": {
-    "node": ">=24.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "build": "tsc -p tsconfig.json",
-    "start": "node dist/index.js",
-    "register-commands": "tsx src/register-commands.ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit"
+    "dev": "wrangler dev --test-scheduled",
+    "deploy": "wrangler deploy",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "register-commands": "tsx scripts/register-commands.ts",
+    "db:migrate:local": "wrangler d1 migrations apply science-tokyo-lms-discord-bot --local",
+    "db:migrate:remote": "wrangler d1 migrations apply science-tokyo-lms-discord-bot --remote",
+    "cf-typegen": "wrangler types"
   },
   "dependencies": {
-    "discord.js": "^14.26.5",
-    "dotenv": "^17.4.2",
-    "express": "^5.2.1",
+    "discord-interactions": "^4.4.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
+    "@cloudflare/vitest-pool-workers": "^0.18.4",
+    "@cloudflare/workers-types": "^5.20260714.1",
     "@types/node": "^24.10.0",
+    "dotenv": "^17.4.2",
     "tsx": "^4.23.1",
-    "typescript": "^7.0.2"
-  },
-  "overrides": {
-    "undici": "6.27.0"
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.10",
+    "wrangler": "^4.110.0"
   }
 }

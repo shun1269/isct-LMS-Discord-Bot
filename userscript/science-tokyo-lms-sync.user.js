@@ -1,24 +1,23 @@
 // ==UserScript==
 // @name         Science Tokyo LMS 課題同期
 // @namespace    https://lms.s.isct.ac.jp/
-// @version      0.1.0
+// @version      0.2.0
 // @description  Moodleの課題期限を自分のDiscord Bot用APIへ同期します
-// @match        https://lms.s.isct.ac.jp/2025/*
+// @match        https://lms.s.isct.ac.jp/*
 // @grant        GM_xmlhttpRequest
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        unsafeWindow
-// @connect      127.0.0.1
-// @connect      localhost
+// @connect      REPLACE_WITH_WORKER_HOST
 // ==/UserScript==
 
 (() => {
   "use strict";
 
   // 必ず自分の環境に合わせて変更する。
-  const API_BASE = "http://127.0.0.1:3000";
-  const SYNC_TOKEN = "d91e71ec95e5f71b5762498e38cf2684a9229b79f5472aa66afa1fa0d1246b7c";
+  const API_BASE = "https://REPLACE_WITH_WORKER_DOMAIN";
+  const SYNC_TOKEN = "REPLACE_WITH_SYNC_TOKEN";
   const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
   const ONE_DAY = 24 * 60 * 60;
   const MAX_EVENTS = 50;
@@ -26,7 +25,8 @@
   const LAST_SYNC_KEY = "scienceTokyoLmsLastSync";
 
   function getSource() {
-    const year = location.pathname.match(/^\/(\d{4})(?:\/|$)/)?.[1] ?? "unknown";
+    const year = location.pathname.match(/^\/(\d{4})(?:\/|$)/)?.[1];
+    if (!year) throw new Error("LMSの年度URL（/YYYY/）ではないため同期しません。");
     return `science-tokyo-lms-${year}`;
   }
 
@@ -154,6 +154,9 @@
     setButtonState("syncing", "同期中…");
 
     try {
+      if (API_BASE.includes("REPLACE_WITH_") || SYNC_TOKEN.includes("REPLACE_WITH_")) {
+        throw new Error("API_BASEとSYNC_TOKENをTampermonkey上で設定してください。");
+      }
       const payload = await fetchAssignments();
       const response = await postJson("/api/v1/assignments/sync", payload);
       const now = Date.now();

@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "science-tokyo-lms-discord-bot",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-07-14",
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "science-tokyo-lms-discord-bot",
+      "database_id": "f677c091-5baf-45cf-bf23-06029e2b7020",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/5 * * * *"]
+  },
+  "vars": {
+    "DISCORD_APPLICATION_ID": "1526404851829969066",
+    "DISCORD_GUILD_ID": "826097571335897109",
+    "DISCORD_CHANNEL_ID": "826097571779837964",
+    "DISCORD_MENTION": "<@826096838876069929>"
+  },
+  "observability": {
+    "enabled": true
+  }
+}

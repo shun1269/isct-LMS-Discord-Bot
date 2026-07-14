@@ -1,27 +1,16 @@
-import { createApi } from "./api.js";
-import { config } from "./config.js";
-import { startDiscordBot } from "./discord.js";
-import { startReminderLoop } from "./reminders.js";
+import type { Env } from "./env";
+import { checkReminders } from "./reminders";
+import { route } from "./router";
 
-const app = createApi();
-
-const server = app.listen(config.port, "0.0.0.0", () => {
-  console.log(`Sync API listening on http://127.0.0.1:${config.port}`);
-});
-
-await startDiscordBot();
-const reminderTimer = startReminderLoop();
-
-async function shutdown(signal: string): Promise<void> {
-  console.log(`Received ${signal}; shutting down...`);
-  clearInterval(reminderTimer);
-
-  server.close(() => {
-    process.exit(0);
-  });
-
-  setTimeout(() => process.exit(1), 10_000).unref();
-}
-
-process.once("SIGINT", () => void shutdown("SIGINT"));
-process.once("SIGTERM", () => void shutdown("SIGTERM"));
+export default {
+  async fetch(request: Request, env: Env): Promise<Response> {
+    try { return await route(request, env); }
+    catch (error) {
+      console.error("Unhandled request error", error instanceof Error ? error.message : "unknown error");
+      return Response.json({ error: "internal_server_error" }, { status: 500 });
+    }
+  },
+  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    ctx.waitUntil(checkReminders(env));
+  },
+} satisfies ExportedHandler<Env>;
