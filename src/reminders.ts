@@ -13,6 +13,8 @@ export function selectReminderType(deadlineUnix: number, nowUnix: number): Remin
     const hours = Math.min(24, Math.max(1, Math.ceil(remainingSeconds / HOUR)));
     return `hourly-${hours}`;
   }
+  if (remainingSeconds < 2 * DAY) return "2d";
+  if (remainingSeconds < 3 * DAY) return "3d";
   return remainingSeconds <= 7 * DAY ? "7d" : null;
 }
 
