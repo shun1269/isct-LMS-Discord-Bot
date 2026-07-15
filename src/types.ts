@@ -34,3 +34,26 @@ export interface SyncRun {
 }
 
 export type ReminderType = "7d" | "3d" | "2d" | `hourly-${number}`;
+
+export type UrgencyLevel =
+  | "overdue"
+  | "critical"
+  | "urgent"
+  | "warning"
+  | "near"
+  | "normal"
+  | "future";
+
+export interface UrgencyStyle {
+  level: UrgencyLevel;
+  emoji: string;
+  label: string;
+  color: number;
+  mentionRequired: boolean;
+}
+
+export interface UpcomingCounts {
+  within24Hours: number;
+  within3Days: number;
+  within7Days: number;
+}

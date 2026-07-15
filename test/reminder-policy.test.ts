@@ -49,7 +49,7 @@ describe("reminder policy", () => {
     const type = selectReminderType(now + 36 * 3600, now);
     expect(type).toBe("2d");
     expect(type).not.toBe("7d");
-    expect(reminderTitle(type!)).toBe("締切まで2日を切りました");
+    expect(reminderTitle(type!)).toBe("⏰ 締切まで2日を切りました");
   });
 
   it("restricts allowed mentions", () => {

@@ -1,4 +1,4 @@
-import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun } from "./types";
+import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, UpcomingCounts } from "./types";
 
 const UPSERT_SQL = `
   INSERT INTO assignments (
@@ -90,6 +90,22 @@ export async function getLastSync(db: D1Database): Promise<SyncRun | null> {
   return {
     source: String(row.source), syncedAt: String(row.synced_at),
     receivedCount: Number(row.received_count), complete: Boolean(row.complete),
+  };
+}
+
+export async function countUpcomingAssignments(db: D1Database, nowUnix: number): Promise<UpcomingCounts> {
+  const row = await db.prepare(`
+    SELECT
+      SUM(CASE WHEN deadline_unix <= ? THEN 1 ELSE 0 END) AS within_24_hours,
+      SUM(CASE WHEN deadline_unix <= ? THEN 1 ELSE 0 END) AS within_3_days,
+      COUNT(*) AS within_7_days
+    FROM assignments
+    WHERE is_active = 1 AND deadline_unix >= ? AND deadline_unix <= ?
+  `).bind(nowUnix + 86_400, nowUnix + 3 * 86_400, nowUnix, nowUnix + 7 * 86_400).first<Record<string, unknown>>();
+  return {
+    within24Hours: Number(row?.within_24_hours ?? 0),
+    within3Days: Number(row?.within_3_days ?? 0),
+    within7Days: Number(row?.within_7_days ?? 0),
   };
 }
 
