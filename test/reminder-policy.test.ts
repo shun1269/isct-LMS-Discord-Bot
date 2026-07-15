@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { env } from "cloudflare:test";
-import { allowedMentions } from "../src/format";
+import { allowedMentions, reminderTitle } from "../src/format";
 import { claimReminder, syncAssignments } from "../src/repository";
 import { processReminderCandidate, selectReminderType } from "../src/reminders";
 import { assignment, resetDatabase } from "./helpers";
@@ -43,6 +43,13 @@ describe("reminder policy", () => {
 
   it("only selects the current bucket after a long pause", () => {
     expect(selectReminderType(now + 4 * 3600 + 40 * 60, now)).toBe("hourly-5");
+  });
+
+  it("uses the two-day reminder instead of the seven-day reminder inside two days", () => {
+    const type = selectReminderType(now + 36 * 3600, now);
+    expect(type).toBe("2d");
+    expect(type).not.toBe("7d");
+    expect(reminderTitle(type!)).toBe("⏰ 締切まで2日を切りました");
   });
 
   it("restricts allowed mentions", () => {

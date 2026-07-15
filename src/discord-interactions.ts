@@ -1,7 +1,7 @@
 import { verifyKey } from "discord-interactions";
 import type { Env } from "./env";
-import { formatAssignmentList, formatSyncStatus } from "./format";
-import { getLastSync, listUpcomingAssignments } from "./repository";
+import { buildAssignmentListEmbed, formatSyncStatus, type DiscordEmbed } from "./format";
+import { countUpcomingAssignments, getLastSync, listUpcomingAssignments } from "./repository";
 
 interface InteractionOption { name?: unknown; value?: unknown }
 interface InteractionPayload { type?: unknown; data?: { name?: unknown; options?: InteractionOption[] } }
@@ -13,6 +13,10 @@ function json(body: unknown, status = 200): Response {
 
 function ephemeral(content: string): Response {
   return json({ type: 4, data: { flags: 64, content, allowed_mentions: { parse: [] } } });
+}
+
+function ephemeralEmbed(embed: DiscordEmbed): Response {
+  return json({ type: 4, data: { flags: 64, embeds: [embed], allowed_mentions: { parse: [] } } });
 }
 
 function getDays(options: InteractionOption[] | undefined): number {
@@ -43,10 +47,15 @@ export async function handleInteraction(request: Request, env: Env, verifier: Si
     const days = getDays(interaction.data.options);
     const nowUnix = Math.floor(Date.now() / 1000);
     const assignments = await listUpcomingAssignments(env.DB, nowUnix, nowUnix + days * 86_400, 50);
-    return ephemeral(formatAssignmentList(assignments, days));
+    return ephemeralEmbed(buildAssignmentListEmbed(assignments, days, nowUnix));
   }
   if (interaction.data.name === "sync-status") {
-    return ephemeral(formatSyncStatus(await getLastSync(env.DB)));
+    const nowUnix = Math.floor(Date.now() / 1000);
+    const [lastSync, counts] = await Promise.all([
+      getLastSync(env.DB),
+      countUpcomingAssignments(env.DB, nowUnix),
+    ]);
+    return ephemeral(formatSyncStatus(lastSync, counts, nowUnix * 1000));
   }
   return ephemeral("未知のコマンドです。コマンドを再登録してください。");
 }

@@ -18,8 +18,9 @@ describe("Discord interactions", () => {
     const item = assignment(1, Math.floor(Date.now() / 1000) + 3600);
     await syncAssignments(env.DB, { source: item.source, complete: true, assignments: [item] });
     for (const name of ["assignments", "sync-status", "unknown"]) {
-      const body = await (await handleInteraction(request({ type: 2, data: { name } }), workerEnv(), valid)).json() as { type: number; data: { flags: number } };
+      const body = await (await handleInteraction(request({ type: 2, data: { name } }), workerEnv(), valid)).json() as { type: number; data: { flags: number; embeds?: unknown[] } };
       expect(body.type).toBe(4); expect(body.data.flags).toBe(64);
+      if (name === "assignments") expect(body.data.embeds).toHaveLength(1);
     }
   });
 });
