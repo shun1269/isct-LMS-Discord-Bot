@@ -191,12 +191,12 @@
   function addSyncButton() {
     syncButton = document.createElement("button");
     syncButton.type = "button";
-    syncButton.textContent = "課題をDiscordへ同期";
+    syncButton.textContent = "Discordに同期";
     syncButton.title = "Moodleの課題名・期限・リンクだけを同期します";
     syncButton.style.cssText = [
       "position:fixed",
       "right:20px",
-      "bottom:20px",
+      "top:90px",
       "z-index:99999",
       "padding:10px 16px",
       "border:0",
