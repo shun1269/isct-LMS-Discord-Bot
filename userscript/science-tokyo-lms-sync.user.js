@@ -188,7 +188,13 @@
     syncButton.disabled = state === "syncing";
   }
 
+  function shouldShowSyncButton() {
+    return /^\/2025\/(?:course|my)(?:\/|$)/.test(location.pathname);
+  }
+
   function addSyncButton() {
+    if (!shouldShowSyncButton()) return;
+
     syncButton = document.createElement("button");
     syncButton.type = "button";
     syncButton.textContent = "Discordに同期";
