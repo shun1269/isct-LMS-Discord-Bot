@@ -1,7 +1,9 @@
-import { formatRemainingTime, type DiscordEmbed } from "./format.js";
-import type { TodoRecord } from "./types.js";
+import { allowedMentions, formatRemainingTime, getUrgencyLevel, getUrgencyStyle, reminderTitle, type AllowedMentions, type DiscordEmbed } from "./format.js";
+import type { ReminderTarget, ReminderType, TodoRecord } from "./types.js";
 
 export const TODO_DONE_PREFIX = "todo-done:";
+// Task reminders share reminder_logs with assignments under this source.
+export const TODO_REMINDER_SOURCE = "discord-todo";
 // Buttons from the earlier modal-based version may still exist on old messages.
 export const LEGACY_TODO_DEADLINE_PREFIX = "todo-deadline:";
 export const TODO_TITLE_MAX_LENGTH = 100;
@@ -153,8 +155,45 @@ export function buildTodoMessage(todo: TodoRecord): TodoMessage {
   const deadline = todo.deadlineUnix === null ? "📅 期限なし" : `📅 <t:${todo.deadlineUnix}:F>（<t:${todo.deadlineUnix}:R>）`;
   return {
     content: [`📝 **${todo.title}**`, deadline, "-# 期限を変えるときは「木 18」、終わったら「完了」とこのメッセージにリプライ"].join("\n"),
-    components: [{ type: 1, components: [{ type: 2, style: 3, custom_id: `${TODO_DONE_PREFIX}${todo.id}`, label: "完了", emoji: { name: "✅" } }] }],
+    components: [completeButtonRow(todo)],
   };
+}
+
+export function todoReminderTarget(todo: TodoRecord & { deadlineUnix: number }): ReminderTarget {
+  return { source: TODO_REMINDER_SOURCE, eventId: todo.id, deadlineUnix: todo.deadlineUnix };
+}
+
+function completeButtonRow(todo: TodoRecord): TodoButtonRow {
+  return { type: 1, components: [{ type: 2, style: 3, custom_id: `${TODO_DONE_PREFIX}${todo.id}`, label: "完了", emoji: { name: "✅" } }] };
+}
+
+// Same urgency styling and mention rule as assignment reminders, plus the completion button.
+export function buildTodoReminderMessage(
+  todo: TodoRecord & { deadlineUnix: number },
+  type: ReminderType,
+  mention: string,
+  nowUnix = Math.floor(Date.now() / 1000),
+): { content?: string; embeds: DiscordEmbed[]; components: TodoButtonRow[]; allowed_mentions: AllowedMentions } {
+  const remaining = todo.deadlineUnix - nowUnix;
+  const style = getUrgencyStyle(getUrgencyLevel(remaining));
+  const timeEmoji = style.level === "critical" ? "🚨" : style.level === "overdue" ? "⛔" : "⏳";
+  const validMention = style.mentionRequired && /^(?:<@\d+>|<@&\d+>)$/.test(mention.trim()) ? mention.trim() : "";
+  const message: { content?: string; embeds: DiscordEmbed[]; components: TodoButtonRow[]; allowed_mentions: AllowedMentions } = {
+    embeds: [{
+      title: reminderTitle(type, style),
+      description: [
+        `**📝 ${truncate(todo.title, 256)}**`, "",
+        `**${timeEmoji} ${formatRemainingTime(remaining)}**`,
+        `📅 締切：<t:${todo.deadlineUnix}:F>`,
+      ].join("\n"),
+      color: style.color,
+      timestamp: new Date().toISOString(),
+    }],
+    components: [completeButtonRow(todo)],
+    allowed_mentions: validMention ? allowedMentions(validMention) : { parse: [] },
+  };
+  if (validMention) message.content = validMention;
+  return message;
 }
 
 export function buildTodoListEmbed(todos: TodoRecord[]): DiscordEmbed | null {

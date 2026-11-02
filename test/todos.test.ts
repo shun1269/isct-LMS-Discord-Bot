@@ -1,9 +1,11 @@
 import { MessageFlags } from "discord.js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { commandReply } from "../src/commands.js";
 import { handleGatewayAutocomplete, handleGatewayButton, handleGatewayCommand, handleGatewayMessage } from "../src/gateway.js";
-import { getTodoByBotMessage, listOpenTodos } from "../src/repository.js";
-import { buildDeadlineChoices, parseTodoDeadline, resolveTodoDeadlines } from "../src/todos.js";
+import { checkReminders, processTodoReminderCandidate } from "../src/reminders.js";
+import { completeTodo, createTodo, getTodoByBotMessage, listOpenTodos, listTodoReminderCandidates, setTodoDeadline, syncAssignments } from "../src/repository.js";
+import { buildDeadlineChoices, buildTodoReminderMessage, parseTodoDeadline, resolveTodoDeadlines } from "../src/todos.js";
+import { assignment } from "./helpers.js";
 import { env as baseEnv, resetDatabase } from "./helpers.js";
 
 const env = { ...baseEnv, DISCORD_OWNER_ID: "99" };
@@ -175,5 +177,61 @@ describe("todo buttons", () => {
     const legacy = { guildId: env.DISCORD_GUILD_ID, user: { id: "99" }, customId: "todo-deadline:1", update: vi.fn(), reply: vi.fn(), deferred: false, replied: false };
     await handleGatewayButton(legacy as unknown as ButtonArg, env);
     expect(legacy.reply).toHaveBeenCalledWith(expect.objectContaining({ flags: MessageFlags.Ephemeral, content: expect.stringContaining("/todo") }));
+  });
+});
+
+describe("todo reminders", () => {
+  const nowUnix = () => Math.floor(Date.now() / 1000);
+  afterEach(() => { vi.unstubAllGlobals(); });
+
+  it("uses the assignment urgency style and mention rule with a completion button", () => {
+    const todo = { id: 5, title: "レポート", deadlineUnix: 2_000_003_000, createdAt: "x", completedAt: null, botMessageId: null };
+    const urgent = buildTodoReminderMessage(todo, "hourly-1", "<@123>", 2_000_000_000);
+    expect(urgent).toMatchObject({
+      content: "<@123>", allowed_mentions: { parse: [], users: ["123"] },
+      embeds: [{ title: "🚨 締切まで1時間を切りました", description: expect.stringContaining("📝 レポート") }],
+      components: [{ type: 1, components: [{ type: 2, custom_id: "todo-done:5", label: "完了" }] }],
+    });
+    const later = buildTodoReminderMessage({ ...todo, deadlineUnix: 2_000_000_000 + 5 * 86_400 }, "7d", "<@123>", 2_000_000_000);
+    expect(later.content).toBeUndefined();
+    expect(later.allowed_mentions).toEqual({ parse: [] });
+  });
+
+  it("lists only open tasks with a deadline inside the window", async () => {
+    const soon = await createTodo(env.DB, "soon", nowUnix() + 3600, "a");
+    await createTodo(env.DB, "far", nowUnix() + 8 * 86_400, "b");
+    const done = await createTodo(env.DB, "done", nowUnix() + 3600, "c");
+    await completeTodo(env.DB, done.id);
+    expect((await listTodoReminderCandidates(env.DB, nowUnix(), nowUnix() + 7 * 86_400)).map((todo) => todo.id)).toEqual([soon.id]);
+  });
+
+  it("sends each bucket once, again after a deadline change, and separately from assignments", async () => {
+    const todo = await createTodo(env.DB, "レポート", nowUnix() + 3600, "a");
+    const sender = vi.fn(async () => undefined);
+    const candidate = { ...todo, deadlineUnix: todo.deadlineUnix! };
+    expect(await processTodoReminderCandidate(env, candidate, new Date(), sender)).toBe(true);
+    expect(await processTodoReminderCandidate(env, candidate, new Date(), sender)).toBe(false);
+    expect(await processTodoReminderCandidate(env, { ...candidate, deadlineUnix: candidate.deadlineUnix + 60 }, new Date(), sender)).toBe(true);
+    expect(sender).toHaveBeenCalledTimes(2);
+
+    // An assignment whose event_id equals the task ID still gets its own reminder.
+    const item = assignment(todo.id, candidate.deadlineUnix);
+    await syncAssignments(env.DB, { source: item.source, complete: true, assignments: [item] });
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    await checkReminders(env);
+    expect(await env.DB.prepare("SELECT source, event_id FROM reminder_logs WHERE deadline_unix = ? ORDER BY source").bind(candidate.deadlineUnix).all()).toEqual({
+      results: [{ source: "discord-todo", event_id: todo.id }, { source: item.source, event_id: todo.id }],
+    });
+  });
+
+  it("posts task reminders with the button from the reminder job", async () => {
+    const todo = await createTodo(env.DB, "レポート", nowUnix() + 3600, "a");
+    await setTodoDeadline(env.DB, todo.id, nowUnix() + 2 * 3600);
+    const fetcher = vi.fn(async () => new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetcher);
+    await checkReminders(env);
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    const body = JSON.parse(String((fetcher.mock.calls[0] as unknown as [string, RequestInit])[1].body)) as { components: unknown };
+    expect(body.components).toEqual([expect.objectContaining({ components: [expect.objectContaining({ custom_id: `todo-done:${todo.id}` })] })]);
   });
 });

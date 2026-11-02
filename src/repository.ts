@@ -1,5 +1,5 @@
 import type { Database, PreparedStatement } from "./database.js";
-import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, TodoRecord, UpcomingCounts } from "./types.js";
+import type { AssignmentInput, AssignmentRecord, ReminderTarget, ReminderType, SyncPayload, SyncRun, TodoRecord, UpcomingCounts } from "./types.js";
 
 const UPSERT_SQL = `
   INSERT INTO assignments (
@@ -117,7 +117,7 @@ export async function countUpcomingAssignments(db: Database, nowUnix: number): P
   };
 }
 
-export async function claimReminder(db: Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<boolean> {
+export async function claimReminder(db: Database, assignment: ReminderTarget, reminderType: ReminderType, now: Date): Promise<boolean> {
   const staleIso = new Date(now.getTime() - 15 * 60_000).toISOString();
   await db.prepare("DELETE FROM reminder_logs WHERE status = 'pending' AND claimed_at <= ?").bind(staleIso).run();
   const result = await db.prepare(`
@@ -128,14 +128,14 @@ export async function claimReminder(db: Database, assignment: AssignmentRecord, 
   return (result.meta.changes ?? 0) > 0;
 }
 
-export async function markReminderSent(db: Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<void> {
+export async function markReminderSent(db: Database, assignment: ReminderTarget, reminderType: ReminderType, now: Date): Promise<void> {
   await db.prepare(`
     UPDATE reminder_logs SET status = 'sent', sent_at = ?, last_error = NULL
     WHERE source = ? AND event_id = ? AND deadline_unix = ? AND reminder_type = ? AND status = 'pending'
   `).bind(now.toISOString(), assignment.source, assignment.eventId, assignment.deadlineUnix, reminderType).run();
 }
 
-export async function releaseReminderClaim(db: Database, assignment: AssignmentRecord, reminderType: ReminderType): Promise<void> {
+export async function releaseReminderClaim(db: Database, assignment: ReminderTarget, reminderType: ReminderType): Promise<void> {
   await db.prepare(`
     DELETE FROM reminder_logs
     WHERE source = ? AND event_id = ? AND deadline_unix = ? AND reminder_type = ? AND status = 'pending'
@@ -189,5 +189,14 @@ export async function listOpenTodos(db: Database, limit = 25): Promise<TodoRecor
     SELECT * FROM todos WHERE completed_at IS NULL
     ORDER BY deadline_unix IS NULL, deadline_unix ASC, id ASC LIMIT ?
   `).bind(limit).all<Record<string, unknown>>();
+  return results.map(mapTodo);
+}
+
+export async function listTodoReminderCandidates(db: Database, nowUnix: number, untilUnix: number): Promise<TodoRecord[]> {
+  const { results } = await db.prepare(`
+    SELECT * FROM todos
+    WHERE completed_at IS NULL AND deadline_unix > ? AND deadline_unix <= ?
+    ORDER BY deadline_unix ASC
+  `).bind(nowUnix, untilUnix).all<Record<string, unknown>>();
   return results.map(mapTodo);
 }

@@ -34,7 +34,10 @@ export interface SyncRun {
   complete: boolean;
 }
 
-export type ReminderType = "7d" | "3d" | "2d" | `hourly-${number}`;
+// The reminder log key besides the reminder type. Tasks use their own source and their ID as event_id.
+export type ReminderTarget = Pick<AssignmentRecord, "source" | "eventId" | "deadlineUnix">;
+
+export type ReminderType ="7d" | "3d" | "2d" | `hourly-${number}`;
 
 export type UrgencyLevel =
   | "overdue"
