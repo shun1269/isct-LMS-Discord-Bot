@@ -9,5 +9,6 @@ export interface Env {
   DISCORD_GUILD_ID: string;
   DISCORD_CHANNEL_ID: string;
   DISCORD_MENTION: string;
+  DISCORD_OWNER_ID: string;
   DISCORD_MODE: "gateway" | "http";
 }

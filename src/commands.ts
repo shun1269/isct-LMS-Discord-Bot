@@ -1,6 +1,7 @@
 import type { Env } from "./env.js";
 import { buildAssignmentListEmbed, buildReminderToggleComponents, formatSyncStatus, REMINDER_TOGGLE_PREFIX, type DiscordActionRow, type DiscordEmbed } from "./format.js";
-import { countUpcomingAssignments, getLastSync, listUpcomingAssignments, setRemindersMuted } from "./repository.js";
+import { countUpcomingAssignments, getLastSync, listOpenTodos, listUpcomingAssignments, setRemindersMuted } from "./repository.js";
+import { buildTodoListEmbed } from "./todos.js";
 
 export interface CommandReply { content?: string; embeds?: DiscordEmbed[]; components?: DiscordActionRow[] }
 
@@ -10,8 +11,9 @@ function validDays(requestedDays: unknown): number {
 
 async function assignmentListReply(env: Env, days: number): Promise<CommandReply> {
   const nowUnix = Math.floor(Date.now() / 1000);
-  const assignments = await listUpcomingAssignments(env.DB, nowUnix, nowUnix + days * 86_400, 50);
-  return { embeds: [buildAssignmentListEmbed(assignments, days, nowUnix)], components: buildReminderToggleComponents(assignments, days) };
+  const [assignments, todos] = await Promise.all([listUpcomingAssignments(env.DB, nowUnix, nowUnix + days * 86_400, 50), listOpenTodos(env.DB)]);
+  const todoEmbed = buildTodoListEmbed(todos);
+  return { embeds: [buildAssignmentListEmbed(assignments, days, nowUnix), ...(todoEmbed ? [todoEmbed] : [])], components: buildReminderToggleComponents(assignments, days) };
 }
 
 export async function commandReply(env: Env, name: string, requestedDays?: unknown): Promise<CommandReply> {

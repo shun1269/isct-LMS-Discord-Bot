@@ -10,5 +10,10 @@ describe("Ubuntu configuration", () => {
     expect(() => loadConfig({ ...values, PORT: "0" })).toThrow(/PORT/);
     expect(() => loadConfig({ ...values, DISCORD_MODE: "wrong" })).toThrow(/DISCORD_MODE/);
     expect(() => loadConfig({ ...values, DISCORD_MODE: "http", DISCORD_PUBLIC_KEY: "invalid" })).toThrow(/DISCORD_PUBLIC_KEY/);
+    expect(() => loadConfig({ ...values, DISCORD_OWNER_ID: "<@99>" })).toThrow(/DISCORD_OWNER_ID/);
+  });
+  it("leaves todo messages disabled unless an owner is configured", () => {
+    expect(loadConfig(values).DISCORD_OWNER_ID).toBe("");
+    expect(loadConfig({ ...values, DISCORD_OWNER_ID: " 99 " }).DISCORD_OWNER_ID).toBe("99");
   });
 });

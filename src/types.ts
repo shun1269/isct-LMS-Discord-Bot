@@ -58,3 +58,11 @@ export interface UpcomingCounts {
   within3Days: number;
   within7Days: number;
 }
+
+export interface TodoRecord {
+  id: number;
+  title: string;
+  deadlineUnix: number | null;
+  createdAt: string;
+  completedAt: string | null;
+}

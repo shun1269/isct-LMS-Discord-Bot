@@ -31,7 +31,7 @@ copy .env.example .env
 npm run dev
 ```
 
-Gatewayを起動する前に、Discord Developer Portalの **Interactions Endpoint URLを空欄にして保存**します。Botは既存のDiscordサーバーに参加したままで使えます。Message Content Intentなどの特権Intentは不要です。通常、既存のスラッシュコマンドの再登録は不要です。必要な場合は `npm run build` の後に `npm run register-commands` を実行します。
+Gatewayを起動する前に、Discord Developer Portalの **Interactions Endpoint URLを空欄にして保存**します。Botは既存のDiscordサーバーに参加したままで使えます。`DISCORD_OWNER_ID` が空なら、Message Content Intentなどの特権Intentは不要です（`todo:` によるタスク追加を使う場合は「タスク」の節を参照）。通常、既存のスラッシュコマンドの再登録は不要です。必要な場合は `npm run build` の後に `npm run register-commands` を実行します。
 
 `HOST` は既定で `127.0.0.1`、ポートは `3000` です。開発時の確認先は `http://127.0.0.1:3000/health` です。APIプロセス自身は期限通知を実行しません。
 
@@ -130,6 +130,20 @@ LMSの課題画面で「Discordに同期」を押し、Discordの `/同期状態
 既存の色・絵文字による緊急度表示を維持します。24時間以内の通知だけが設定済みユーザーまたはロールをメンションし、`@everyone` と `@here` は許可しません。`/同期状態` は24時間・3日・7日以内の件数と、最終同期から24時間以上経過した場合の警告を表示します。
 
 `/課題` の結果の下にあるメニューから課題を選ぶと、その課題のリマインドを停止できます（もう一度選ぶと再開）。課題は削除されず、一覧には「🔕 リマインド停止中」と表示されます。停止は課題ごと（source・event_id）に保存され、同期や期限変更でも解除されません。メニューは締切の近い25件までです。
+
+## タスク（todo:）
+
+Botが参加しているチャンネルに `todo:タスク名` と送ると、そのタスクを登録します（全角の `：` も可）。Botの返信の **📅 期限を設定** ボタンを押すと入力欄が開くので、日本時間で期限を入力します。`11/10 23:59`、`2026-11-10 18:00`、`11/10`（時刻を省略すると23:59）の形式に対応しています。年を省略した場合は、次に来るその日付を使います。**✅ 完了** で完了にします。未完了のタスクは `/課題` の課題一覧の下に表示されます。タスクには期限通知を送りません。
+
+登録できるのは `DISCORD_OWNER_ID` に設定したユーザーだけです。ほかのユーザーのメッセージは無視し、ボタンは操作を拒否します。この機能はGatewayモード専用です。有効にする手順：
+
+1. Discord Developer PortalのBot設定で **Message Content Intent** をオンにして保存します。オフのまま `DISCORD_OWNER_ID` を設定すると、Gatewayのログインに失敗します。
+2. 自分のDiscordユーザーID（開発者モードで「ユーザーIDをコピー」）を `/etc/lms-bot.env` の `DISCORD_OWNER_ID` に設定します。
+3. サービスを再起動します。タスク用のテーブルは起動時に自動作成されます。
+
+```bash
+sudo systemctl restart lms-bot.service
+```
 
 送信失敗時は次回チェックで再試行できます。プロセス異常終了などで残ったpendingは15分後に再取得可能です。Discord送信とSQLite更新は単一トランザクションにできないため、送信成功直後に異常終了すると重複する可能性は残ります。
 

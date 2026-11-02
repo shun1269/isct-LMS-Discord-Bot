@@ -1,5 +1,5 @@
 import type { Database, PreparedStatement } from "./database.js";
-import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, UpcomingCounts } from "./types.js";
+import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, TodoRecord, UpcomingCounts } from "./types.js";
 
 const UPSERT_SQL = `
   INSERT INTO assignments (
@@ -140,4 +140,44 @@ export async function releaseReminderClaim(db: Database, assignment: AssignmentR
     DELETE FROM reminder_logs
     WHERE source = ? AND event_id = ? AND deadline_unix = ? AND reminder_type = ? AND status = 'pending'
   `).bind(assignment.source, assignment.eventId, assignment.deadlineUnix, reminderType).run();
+}
+
+function mapTodo(row: Record<string, unknown>): TodoRecord {
+  return {
+    id: Number(row.id), title: String(row.title),
+    deadlineUnix: row.deadline_unix === null ? null : Number(row.deadline_unix),
+    createdAt: String(row.created_at), completedAt: row.completed_at === null ? null : String(row.completed_at),
+  };
+}
+
+// The source message ID makes a redelivered Gateway event return the existing task instead of a duplicate.
+export async function createTodo(db: Database, title: string, sourceMessageId: string, now = new Date()): Promise<TodoRecord> {
+  await db.prepare(`
+    INSERT OR IGNORE INTO todos (title, source_message_id, created_at) VALUES (?, ?, ?)
+  `).bind(title, sourceMessageId, now.toISOString()).run();
+  const row = await db.prepare("SELECT * FROM todos WHERE source_message_id = ?").bind(sourceMessageId).first<Record<string, unknown>>();
+  return mapTodo(row!);
+}
+
+export async function getTodo(db: Database, id: number): Promise<TodoRecord | null> {
+  const row = await db.prepare("SELECT * FROM todos WHERE id = ?").bind(id).first<Record<string, unknown>>();
+  return row ? mapTodo(row) : null;
+}
+
+export async function setTodoDeadline(db: Database, id: number, deadlineUnix: number): Promise<boolean> {
+  const result = await db.prepare("UPDATE todos SET deadline_unix = ? WHERE id = ? AND completed_at IS NULL").bind(deadlineUnix, id).run();
+  return result.meta.changes > 0;
+}
+
+export async function completeTodo(db: Database, id: number, now = new Date()): Promise<boolean> {
+  const result = await db.prepare("UPDATE todos SET completed_at = ? WHERE id = ? AND completed_at IS NULL").bind(now.toISOString(), id).run();
+  return result.meta.changes > 0;
+}
+
+export async function listOpenTodos(db: Database, limit = 25): Promise<TodoRecord[]> {
+  const { results } = await db.prepare(`
+    SELECT * FROM todos WHERE completed_at IS NULL
+    ORDER BY deadline_unix IS NULL, deadline_unix ASC, id ASC LIMIT ?
+  `).bind(limit).all<Record<string, unknown>>();
+  return results.map(mapTodo);
 }

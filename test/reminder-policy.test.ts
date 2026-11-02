@@ -34,7 +34,7 @@ describe("reminder policy", () => {
     const record = { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true, remindersMuted: false };
     const workerEnv = {
       ...env, SYNC_TOKEN: "x", DISCORD_BOT_TOKEN: "x", DISCORD_PUBLIC_KEY: "x",
-      DISCORD_APPLICATION_ID: "1", DISCORD_GUILD_ID: "2", DISCORD_CHANNEL_ID: "3", DISCORD_MENTION: "",
+      DISCORD_APPLICATION_ID: "1", DISCORD_GUILD_ID: "2", DISCORD_CHANNEL_ID: "3", DISCORD_MENTION: "", DISCORD_OWNER_ID: "",
     };
     const failingSender = async () => { throw new Error("expected failure"); };
     expect(await processReminderCandidate(workerEnv, record, new Date(now * 1000), failingSender)).toBe(false);
