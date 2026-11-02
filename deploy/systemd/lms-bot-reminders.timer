@@ -1,0 +1,11 @@
+[Unit]
+Description=Check LMS deadlines every five minutes
+
+[Timer]
+OnCalendar=*-*-* *:00/5:00
+Persistent=true
+AccuracySec=10s
+Unit=lms-bot-reminders.service
+
+[Install]
+WantedBy=timers.target

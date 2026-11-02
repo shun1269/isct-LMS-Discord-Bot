@@ -1,0 +1,26 @@
+[Unit]
+Description=Science Tokyo LMS API and Discord Bot
+Wants=network-online.target
+After=network-online.target tailscaled.service
+
+[Service]
+Type=simple
+User=lms-bot
+Group=lms-bot
+WorkingDirectory=/opt/science-tokyo-lms-discord-bot
+Environment=NODE_ENV=production
+EnvironmentFile=/etc/lms-bot.env
+ExecStart=/usr/bin/node dist/src/index.js
+Restart=on-failure
+RestartSec=10
+TimeoutStopSec=20
+StateDirectory=lms-bot
+StateDirectoryMode=0700
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+[Install]
+WantedBy=multi-user.target

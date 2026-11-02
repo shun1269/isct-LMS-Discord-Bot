@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Science Tokyo LMS 課題同期
 // @namespace    https://lms.s.isct.ac.jp/
-// @version      0.2.0
+// @version      0.3.0
 // @description  Moodleの課題期限を自分のDiscord Bot用APIへ同期します
 // @match        https://lms.s.isct.ac.jp/*
 // @grant        GM_xmlhttpRequest
@@ -9,14 +9,16 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        unsafeWindow
-// @connect      REPLACE_WITH_WORKER_HOST
+// @connect      100.126.148.41
+// @connect      127.0.0.1
 // ==/UserScript==
 
 (() => {
   "use strict";
 
   // 必ず自分の環境に合わせて変更する。
-  const API_BASE = "https://REPLACE_WITH_WORKER_DOMAIN";
+  // Tailscaleに接続したブラウザからのみアクセスできます。
+  const API_BASE = "http://100.126.148.41:3000";
   const SYNC_TOKEN = "REPLACE_WITH_SYNC_TOKEN";
   const AUTO_SYNC_INTERVAL_MS = 6 * 60 * 60 * 1000;
   const ONE_DAY = 24 * 60 * 60;
@@ -189,7 +191,7 @@
   }
 
   function shouldShowSyncButton() {
-    return /^\/2025\/(?:course|my)(?:\/|$)/.test(location.pathname);
+    return /^\/\d{4}\/(?:course|my)(?:\/|$)/.test(location.pathname);
   }
 
   function addSyncButton() {

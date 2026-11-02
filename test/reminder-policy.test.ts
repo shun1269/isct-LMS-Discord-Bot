@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { env } from "cloudflare:test";
-import { allowedMentions, reminderTitle } from "../src/format";
-import { claimReminder, syncAssignments } from "../src/repository";
-import { processReminderCandidate, selectReminderType } from "../src/reminders";
-import { assignment, resetDatabase } from "./helpers";
+import { env } from "./helpers.js";
+import { allowedMentions, reminderTitle } from "../src/format.js";
+import { claimReminder, syncAssignments } from "../src/repository.js";
+import { processReminderCandidate, selectReminderType } from "../src/reminders.js";
+import { assignment, resetDatabase } from "./helpers.js";
 
 describe("reminder policy", () => {
   const now = 2_000_000_000;

@@ -1,10 +1,5 @@
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
-import { parse } from "dotenv";
-
-Object.assign(process.env, parse(readFileSync(resolve(".dev.vars"), "utf8")));
 const required = ["DISCORD_BOT_TOKEN", "DISCORD_APPLICATION_ID", "DISCORD_GUILD_ID"] as const;
-for (const name of required) if (!process.env[name] || process.env[name]?.startsWith("replace-")) throw new Error(`${name} is required in .dev.vars`);
+for (const name of required) if (!process.env[name] || /^(replace[-_]|REPLACE_)/i.test(process.env[name]!)) throw new Error(`${name} is required in .env or the environment`);
 
 const commands = [
   {
@@ -19,7 +14,7 @@ const commands = [
 ];
 
 const response = await fetch(`https://discord.com/api/v10/applications/${process.env.DISCORD_APPLICATION_ID}/guilds/${process.env.DISCORD_GUILD_ID}/commands`, {
-  method: "PUT", headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(commands),
+  method: "PUT", headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" }, body: JSON.stringify(commands), signal: AbortSignal.timeout(15_000),
 });
-if (!response.ok) throw new Error(`Discord command registration failed (${response.status}): ${(await response.text()).slice(0, 1000)}`);
+if (!response.ok) throw new Error(`Discord command registration failed (${response.status})`);
 console.log(`Registered ${commands.length} guild commands.`);

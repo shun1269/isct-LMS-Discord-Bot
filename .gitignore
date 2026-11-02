@@ -10,3 +10,8 @@ coverage/
 *.log
 dist/
 data/
+*.sqlite
+*.sqlite-*
+*.sql.backup
+*.tar.gz
+*.zip

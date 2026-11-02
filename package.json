@@ -3,33 +3,32 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Cloudflare Worker that syncs Science Tokyo LMS assignments and sends Discord reminders",
+  "description": "Self-hosted Science Tokyo LMS sync API and Discord reminders for Ubuntu",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=24.0.0 <25"
   },
   "scripts": {
-    "dev": "wrangler dev --test-scheduled",
-    "deploy": "wrangler deploy",
+    "dev": "node --env-file-if-exists=.env --import tsx src/index.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node --env-file-if-exists=.env dist/src/index.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "register-commands": "tsx scripts/register-commands.ts",
-    "db:migrate:local": "wrangler d1 migrations apply science-tokyo-lms-discord-bot --local",
-    "db:migrate:remote": "wrangler d1 migrations apply science-tokyo-lms-discord-bot --remote",
-    "cf-typegen": "wrangler types"
+    "reminders:run": "node --env-file-if-exists=.env dist/scripts/run-reminders.js",
+    "register-commands": "node --env-file-if-exists=.env dist/scripts/register-commands.js",
+    "db:import": "node --env-file-if-exists=.env dist/scripts/import-d1.js",
+    "db:backup": "node --env-file-if-exists=.env dist/scripts/backup-database.js",
+    "env:migrate": "node dist/scripts/prepare-env.js"
   },
   "dependencies": {
     "discord-interactions": "^4.4.0",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "discord.js": "^14.27.0"
   },
   "devDependencies": {
-    "@cloudflare/vitest-pool-workers": "^0.18.4",
-    "@cloudflare/workers-types": "^5.20260714.1",
     "@types/node": "^24.10.0",
-    "dotenv": "^17.4.2",
     "tsx": "^4.23.1",
     "typescript": "^7.0.2",
-    "vitest": "^4.1.10",
-    "wrangler": "^4.110.0"
+    "vitest": "^4.1.10"
   }
 }

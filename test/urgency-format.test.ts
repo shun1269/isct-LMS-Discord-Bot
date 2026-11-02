@@ -5,8 +5,8 @@ import {
   formatRemainingTime,
   getUrgencyLevel,
   getUrgencyStyle,
-} from "../src/format";
-import { assignment } from "./helpers";
+} from "../src/format.js";
+import { assignment } from "./helpers.js";
 
 const HOUR = 3_600;
 const DAY = 24 * HOUR;

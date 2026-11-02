@@ -1,7 +1,7 @@
-import type { Env } from "./env";
-import { sendReminder } from "./discord-api";
-import { claimReminder, listReminderCandidates, markReminderSent, releaseReminderClaim } from "./repository";
-import type { AssignmentRecord, ReminderType } from "./types";
+import type { Env } from "./env.js";
+import { sendReminder } from "./discord-api.js";
+import { claimReminder, listReminderCandidates, markReminderSent, releaseReminderClaim } from "./repository.js";
+import type { AssignmentRecord, ReminderType } from "./types.js";
 
 const HOUR = 3_600;
 const DAY = 24 * HOUR;
@@ -26,14 +26,17 @@ export async function processReminderCandidate(
 ): Promise<boolean> {
   const type = selectReminderType(assignment.deadlineUnix, Math.floor(now.getTime() / 1000));
   if (!type || !(await claimReminder(env.DB, assignment, type, now))) return false;
+  let delivered = false;
   try {
     await sender(env, assignment, type);
+    delivered = true;
     await markReminderSent(env.DB, assignment, type, now);
     console.log("Reminder sent", { eventId: assignment.eventId, reminderType: type });
     return true;
   } catch (error) {
-    await releaseReminderClaim(env.DB, assignment, type);
-    console.error("Reminder delivery failed", { eventId: assignment.eventId, reminderType: type, error: error instanceof Error ? error.message : "unknown error" });
+    // If Discord accepted the message, retain the claim until expiry even if saving the receipt failed.
+    if (!delivered) await releaseReminderClaim(env.DB, assignment, type);
+    console.error("Reminder delivery failed", { eventId: assignment.eventId, reminderType: type, delivered });
     return false;
   }
 }
@@ -43,8 +46,11 @@ export async function checkReminders(env: Env, now = new Date()): Promise<void> 
   console.log("Reminder cron started", { now: now.toISOString() });
   const candidates = await listReminderCandidates(env.DB, nowUnix, nowUnix + 7 * DAY);
   let sent = 0;
+  let failed = 0;
   for (const assignment of candidates) {
-    if (await processReminderCandidate(env, assignment, now)) sent += 1;
+    try { if (await processReminderCandidate(env, assignment, now)) sent += 1; }
+    catch { failed += 1; console.error("Reminder processing failed", { eventId: assignment.eventId }); }
   }
-  console.log("Reminder cron finished", { candidates: candidates.length, sent });
+  console.log("Reminder check finished", { candidates: candidates.length, sent, failed });
+  if (failed > 0) throw new Error("Some reminder candidates could not be processed");
 }

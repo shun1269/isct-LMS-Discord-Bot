@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { env } from "cloudflare:test";
-import { syncAssignments } from "../src/repository";
-import { handleSync } from "../src/sync";
-import { assignment, resetDatabase } from "./helpers";
+import { env } from "./helpers.js";
+import { syncAssignments } from "../src/repository.js";
+import { handleSync } from "../src/sync.js";
+import { assignment, resetDatabase } from "./helpers.js";
 
 const workerEnv = () => ({ ...env, SYNC_TOKEN: "a".repeat(32) } as Parameters<typeof handleSync>[1]);
 
