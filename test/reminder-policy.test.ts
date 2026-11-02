@@ -21,7 +21,7 @@ describe("reminder policy", () => {
   it("claims a deadline bucket once and permits a changed deadline", async () => {
     const input = assignment(1, now + 1000);
     await syncAssignments(env.DB, { source: input.source, complete: true, assignments: [input] });
-    const record = { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true };
+    const record = { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true, remindersMuted: false };
     const date = new Date(now * 1000);
     expect(await claimReminder(env.DB, record, "hourly-1", date)).toBe(true);
     expect(await claimReminder(env.DB, record, "hourly-1", date)).toBe(false);
@@ -31,7 +31,7 @@ describe("reminder policy", () => {
   it("releases a failed delivery claim for the next cron", async () => {
     const input = assignment(1, now + 1000);
     await syncAssignments(env.DB, { source: input.source, complete: true, assignments: [input] });
-    const record = { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true };
+    const record = { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true, remindersMuted: false };
     const workerEnv = {
       ...env, SYNC_TOKEN: "x", DISCORD_BOT_TOKEN: "x", DISCORD_PUBLIC_KEY: "x",
       DISCORD_APPLICATION_ID: "1", DISCORD_GUILD_ID: "2", DISCORD_CHANNEL_ID: "3", DISCORD_MENTION: "",

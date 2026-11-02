@@ -14,7 +14,7 @@ const NOW = 2_000_000_000;
 
 function record(eventId: number, remainingSeconds: number) {
   const input = assignment(eventId, NOW + remainingSeconds);
-  return { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true };
+  return { ...input, firstSeenAt: "x", lastSeenAt: "x", isActive: true, remindersMuted: false };
 }
 
 describe("urgency formatting", () => {

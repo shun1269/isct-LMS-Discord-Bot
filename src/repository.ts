@@ -60,7 +60,7 @@ function mapAssignment(row: Record<string, unknown>): AssignmentRecord {
     deadlineIso: String(row.deadline_iso), module: String(row.module),
     url: String(row.url), overdue: Boolean(row.overdue),
     firstSeenAt: String(row.first_seen_at), lastSeenAt: String(row.last_seen_at),
-    isActive: Boolean(row.is_active),
+    isActive: Boolean(row.is_active), remindersMuted: Boolean(row.reminders_muted),
   };
 }
 
@@ -76,10 +76,17 @@ export async function listUpcomingAssignments(db: Database, nowUnix: number, unt
 export async function listReminderCandidates(db: Database, nowUnix: number, untilUnix: number): Promise<AssignmentRecord[]> {
   const { results } = await db.prepare(`
     SELECT * FROM assignments
-    WHERE is_active = 1 AND deadline_unix > ? AND deadline_unix <= ?
+    WHERE is_active = 1 AND reminders_muted = 0 AND deadline_unix > ? AND deadline_unix <= ?
     ORDER BY deadline_unix ASC
   `).bind(nowUnix, untilUnix).all<Record<string, unknown>>();
   return results.map(mapAssignment);
+}
+
+export async function setRemindersMuted(db: Database, source: string, eventId: number, muted: boolean): Promise<boolean> {
+  const result = await db.prepare(`
+    UPDATE assignments SET reminders_muted = ? WHERE source = ? AND event_id = ?
+  `).bind(muted ? 1 : 0, source, eventId).run();
+  return result.meta.changes > 0;
 }
 
 export async function getLastSync(db: Database): Promise<SyncRun | null> {

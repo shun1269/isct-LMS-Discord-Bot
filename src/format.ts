@@ -9,6 +9,11 @@ import type {
 
 export interface DiscordEmbed { title?: string; description?: string; color?: number; timestamp?: string }
 export interface AllowedMentions { parse: string[]; users?: string[]; roles?: string[] }
+export interface DiscordSelectOption { label: string; value: string; description?: string; emoji?: { name: string } }
+export interface DiscordSelectMenu { type: 3; custom_id: string; placeholder?: string; min_values?: number; max_values?: number; options: DiscordSelectOption[] }
+export interface DiscordActionRow { type: 1; components: DiscordSelectMenu[] }
+
+export const REMINDER_TOGGLE_PREFIX = "reminder-toggle:";
 
 const HOUR = 3_600;
 const DAY = 24 * HOUR;
@@ -106,6 +111,8 @@ export function buildAssignmentListEmbed(
   const lines = summaryLabels
     .filter(([level]) => (counts.get(level) ?? 0) > 0)
     .map(([level, label]) => `${getUrgencyStyle(level).emoji} ${label} ${counts.get(level)}件`);
+  const mutedCount = sorted.filter((item) => item.remindersMuted).length;
+  if (mutedCount > 0) lines.push(`🔕 リマインド停止中 ${mutedCount}件`);
   lines.push("", "締切の近い順に表示しています。");
 
   for (const assignment of sorted) {
@@ -116,6 +123,7 @@ export function buildAssignmentListEmbed(
       "",
       `### ${style.emoji} ${truncate(assignment.title, 120)}`,
       `**${truncate(assignment.courseJa, 80)}**`,
+      ...(assignment.remindersMuted ? ["🔕 リマインド停止中"] : []),
       `**${timeEmoji} ${formatRemainingTime(remaining)}**`,
       `📅 締切：<t:${assignment.deadlineUnix}:F>`,
       `🔗 [課題を開く](${assignment.url})`,
@@ -132,6 +140,27 @@ export function buildAssignmentListEmbed(
     description: lines.join("\n"),
     color: getUrgencyStyle(mostUrgent).color,
   };
+}
+
+// Discord allows 25 options per select menu; the value names the action so stale messages stay idempotent.
+export function buildReminderToggleComponents(assignments: AssignmentRecord[], days: number): DiscordActionRow[] {
+  const options = [...assignments]
+    .sort((a, b) => a.deadlineUnix - b.deadlineUnix)
+    .slice(0, 25)
+    .map((assignment): DiscordSelectOption => ({
+      label: truncate(assignment.title, 100),
+      value: `${assignment.remindersMuted ? "unmute" : "mute"}:${assignment.source}:${assignment.eventId}`,
+      description: truncate(`${assignment.remindersMuted ? "リマインドを再開" : "リマインドを停止"} · ${assignment.courseJa}`, 100),
+      emoji: { name: assignment.remindersMuted ? "🔔" : "🔕" },
+    }));
+  if (options.length === 0) return [];
+  return [{
+    type: 1,
+    components: [{
+      type: 3, custom_id: `${REMINDER_TOGGLE_PREFIX}${days}`,
+      placeholder: "🔕 リマインドを停止／再開する課題を選択", min_values: 1, max_values: 1, options,
+    }],
+  }];
 }
 
 export function formatSyncStatus(

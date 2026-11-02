@@ -24,6 +24,7 @@ export interface AssignmentRecord extends Omit<AssignmentInput, "deadlineJst" | 
   firstSeenAt: string;
   lastSeenAt: string;
   isActive: boolean;
+  remindersMuted: boolean;
 }
 
 export interface SyncRun {

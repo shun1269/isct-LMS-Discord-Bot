@@ -1,9 +1,9 @@
 import { verifyKey } from "discord-interactions";
 import type { Env } from "./env.js";
-import { commandReply } from "./commands.js";
+import { commandReply, componentReply } from "./commands.js";
 
 interface InteractionOption { name?: unknown; value?: unknown }
-interface InteractionPayload { type?: unknown; data?: { name?: unknown; options?: InteractionOption[] } }
+interface InteractionPayload { type?: unknown; guild_id?: unknown; data?: { name?: unknown; options?: InteractionOption[]; custom_id?: unknown; values?: unknown } }
 export type SignatureVerifier = (body: string, signature: string, timestamp: string, publicKey: string) => Promise<boolean>;
 
 function json(body: unknown, status = 200): Response {
@@ -37,6 +37,14 @@ export async function handleInteraction(request: Request, env: Env, verifier: Si
   catch { return json({ error: "invalid_payload" }, 400); }
 
   if (interaction.type === 1) return json({ type: 1 });
+  if (interaction.type === 3) {
+    if (interaction.guild_id !== env.DISCORD_GUILD_ID) return ephemeral("このサーバーでは利用できません。");
+    const values = Array.isArray(interaction.data?.values) ? interaction.data.values.filter((value): value is string => typeof value === "string") : [];
+    const reply = typeof interaction.data?.custom_id === "string" ? await componentReply(env, interaction.data.custom_id, values) : null;
+    if (!reply) return ephemeral("この操作は利用できません。`/課題` を再実行してください。");
+    // Type 7 updates the message that carried the component.
+    return json({ type: 7, data: { ...reply, allowed_mentions: { parse: [] } } });
+  }
   if (interaction.type !== 2 || typeof interaction.data?.name !== "string") {
     return json({ error: "unsupported_interaction" }, 400);
   }
