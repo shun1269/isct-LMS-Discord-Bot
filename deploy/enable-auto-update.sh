@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Turn /opt/science-tokyo-lms-discord-bot into a git checkout owned by lms-bot-deploy and start lms-bot-update.timer.
+# Turn /opt/science-tokyo-lms-discord-bot into a git checkout owned by lms-bot-deploy so lms-bot-update.service can update it.
 # An existing archive-based directory is kept as /opt/science-tokyo-lms-discord-bot.before-git-<time>.
 set -euo pipefail
 if [ "$(id -u)" -ne 0 ]; then
@@ -47,5 +47,4 @@ fi
 
 NODE_BINARY="$node_binary" bash "$app/deploy/install.sh"
 systemctl try-restart lms-bot.service
-systemctl enable --now lms-bot-update.timer
-systemctl list-timers lms-bot-update.timer --no-pager
+printf '%s\n' 'After pushing to GitHub, apply it with: sudo systemctl start lms-bot-update.service'

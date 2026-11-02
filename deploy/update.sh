@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Fast-forward the server checkout to origin, verify it in a separate worktree, then swap the build in.
-# Runs as lms-bot-deploy from lms-bot-update.service; marker files ask the unit's privileged post step to restart.
+# Runs as lms-bot-deploy when lms-bot-update.service is started by hand; marker files ask the unit's privileged post step to restart.
 set -euo pipefail
 
 main() {
@@ -17,20 +17,17 @@ main() {
   git fetch --quiet origin "$branch"
   current="$(git rev-parse HEAD)"
   target="$(git rev-parse FETCH_HEAD)"
-  [ "$current" = "$target" ] && return 0
+  if [ "$current" = "$target" ]; then printf 'Already up to date at %s\n' "$current"; return 0; fi
   if ! git merge-base --is-ancestor "$current" "$target"; then
     printf 'origin/%s is not a fast-forward of %s; skipping update.\n' "$branch" "$current" >&2
     return 1
   fi
-  # A revision that failed verification is retried only after a new push.
-  if [ "$(cat "$state/failed-revision" 2>/dev/null)" = "$target" ]; then return 0; fi
 
   printf 'Verifying %s\n' "$target"
   rm -rf "$staging"
   git worktree prune
   git worktree add --detach --quiet "$staging" "$target"
   if ! (cd "$staging" && npm ci --no-audit --no-fund && npm run typecheck && npm test && npm run build); then
-    printf '%s\n' "$target" >"$state/failed-revision"
     git worktree remove --force "$staging"
     printf 'Verification failed for %s; still running %s.\n' "$target" "$current" >&2
     return 1
@@ -46,7 +43,6 @@ main() {
   mv "$staging/dist" dist
   rm -rf dist.old node_modules.old
   git worktree remove --force "$staging"
-  rm -f "$state/failed-revision"
 
   if grep -Eq '^(src/|migrations/|package(-lock)?\.json$|tsconfig)' <<<"$changed"; then touch "$markers/restart"; fi
   if grep -qx 'scripts/register-commands.ts' <<<"$changed"; then touch "$markers/register-commands"; fi
