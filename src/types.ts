@@ -65,4 +65,5 @@ export interface TodoRecord {
   deadlineUnix: number | null;
   createdAt: string;
   completedAt: string | null;
+  botMessageId: string | null;
 }

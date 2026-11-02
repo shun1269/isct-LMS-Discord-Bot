@@ -21,7 +21,7 @@ describe("SQLite storage and migration", () => {
     const second = new Database(path);
     try {
       expect((await listUpcomingAssignments(second, 0, item.deadlineUnix))[0]?.title).toBe(item.title);
-      expect(await second.prepare("SELECT COUNT(*) AS count FROM app_migrations").first("count")).toBe(3);
+      expect(await second.prepare("SELECT COUNT(*) AS count FROM app_migrations").first("count")).toBe(4);
     } finally { second.close(); }
   });
 

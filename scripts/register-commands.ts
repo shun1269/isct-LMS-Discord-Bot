@@ -11,6 +11,14 @@ const commands = [
     name: "sync-status", name_localizations: { ja: "同期状態" },
     description: "Show the latest LMS sync status", description_localizations: { ja: "LMSとの最終同期状態を表示します" }, type: 1,
   },
+  {
+    name: "todo",
+    description: "Add a task with a deadline", description_localizations: { ja: "期限付きのタスクを追加します" }, type: 1,
+    options: [
+      { type: 3, name: "name", name_localizations: { ja: "名前" }, description: "Task name", description_localizations: { ja: "タスク名" }, required: true, max_length: 100 },
+      { type: 3, name: "deadline", name_localizations: { ja: "期限" }, description: "Deadline in JST (e.g. Fri, 11/10 18:00)", description_localizations: { ja: "期限（例：金、明日 18、3日後、11/10 12:00）" }, required: true, autocomplete: true, max_length: 100 },
+    ],
+  },
 ];
 
 const response = await fetch(`https://discord.com/api/v10/applications/${process.env.DISCORD_APPLICATION_ID}/guilds/${process.env.DISCORD_GUILD_ID}/commands`, {

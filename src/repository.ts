@@ -147,21 +147,31 @@ function mapTodo(row: Record<string, unknown>): TodoRecord {
     id: Number(row.id), title: String(row.title),
     deadlineUnix: row.deadline_unix === null ? null : Number(row.deadline_unix),
     createdAt: String(row.created_at), completedAt: row.completed_at === null ? null : String(row.completed_at),
+    botMessageId: row.bot_message_id === null || row.bot_message_id === undefined ? null : String(row.bot_message_id),
   };
 }
 
-// The source message ID makes a redelivered Gateway event return the existing task instead of a duplicate.
-export async function createTodo(db: Database, title: string, sourceMessageId: string, now = new Date()): Promise<TodoRecord> {
+// The source ID (the /todo interaction ID) makes a redelivered event return the existing task instead of a duplicate.
+export async function createTodo(db: Database, title: string, deadlineUnix: number, sourceId: string, now = new Date()): Promise<TodoRecord> {
   await db.prepare(`
-    INSERT OR IGNORE INTO todos (title, source_message_id, created_at) VALUES (?, ?, ?)
-  `).bind(title, sourceMessageId, now.toISOString()).run();
-  const row = await db.prepare("SELECT * FROM todos WHERE source_message_id = ?").bind(sourceMessageId).first<Record<string, unknown>>();
+    INSERT OR IGNORE INTO todos (title, deadline_unix, source_message_id, created_at) VALUES (?, ?, ?, ?)
+  `).bind(title, deadlineUnix, sourceId, now.toISOString()).run();
+  const row = await db.prepare("SELECT * FROM todos WHERE source_message_id = ?").bind(sourceId).first<Record<string, unknown>>();
   return mapTodo(row!);
 }
 
 export async function getTodo(db: Database, id: number): Promise<TodoRecord | null> {
   const row = await db.prepare("SELECT * FROM todos WHERE id = ?").bind(id).first<Record<string, unknown>>();
   return row ? mapTodo(row) : null;
+}
+
+export async function getTodoByBotMessage(db: Database, botMessageId: string): Promise<TodoRecord | null> {
+  const row = await db.prepare("SELECT * FROM todos WHERE bot_message_id = ?").bind(botMessageId).first<Record<string, unknown>>();
+  return row ? mapTodo(row) : null;
+}
+
+export async function setTodoBotMessage(db: Database, id: number, botMessageId: string): Promise<void> {
+  await db.prepare("UPDATE todos SET bot_message_id = ? WHERE id = ?").bind(botMessageId, id).run();
 }
 
 export async function setTodoDeadline(db: Database, id: number, deadlineUnix: number): Promise<boolean> {
