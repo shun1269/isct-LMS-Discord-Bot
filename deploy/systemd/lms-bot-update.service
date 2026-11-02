@@ -1,0 +1,25 @@
+[Unit]
+Description=Update Science Tokyo LMS bot from GitHub
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=lms-bot-deploy
+Group=lms-bot-deploy
+WorkingDirectory=/opt/science-tokyo-lms-discord-bot
+Environment=PATH=@NODE_DIR@:/usr/local/bin:/usr/bin:/bin
+Environment=HOME=/var/lib/lms-bot-deploy
+ExecStart=/bin/bash deploy/update.sh
+# "+" runs these as root; they only act on markers written by update.sh.
+ExecStartPost=+/bin/sh -c 'if [ -e /run/lms-bot-update/restart ]; then systemctl try-restart lms-bot.service; fi'
+ExecStartPost=+/bin/sh -c 'if [ -e /run/lms-bot-update/register-commands ]; then systemctl start lms-bot-register-commands.service; fi'
+TimeoutStartSec=20min
+StateDirectory=lms-bot-deploy
+RuntimeDirectory=lms-bot-update
+UMask=0022
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/science-tokyo-lms-discord-bot

@@ -111,6 +111,36 @@ sudo journalctl -u lms-bot-reminders.service -n 50 --no-pager
 
 タイマーは5分ごとに実行し、停止中の実行回数を一括再生しません。復帰時点の通知区分だけを処理します。同一ジョブが動作中の間は次のジョブを重ねて起動しません。
 
+## GitHubからの自動更新
+
+`lms-bot-update.timer` が2分ごとにGitHubの `main` を確認し、新しいコミットがあればサーバーへ取り込みます。サーバーからGitHubへ取りに行く方式なので、Tailscale以外の受信経路やGitHub側のSecretは不要です。
+
+1. 別ディレクトリに新しいコミットを展開し、`npm ci`・型検査・テスト・ビルドを実行
+2. すべて成功した場合だけ `/opt/science-tokyo-lms-discord-bot` を早送り更新し、`dist` と `node_modules` を差し替え
+3. `src/`・`migrations/`・`package.json`・`package-lock.json`・`tsconfig*` が変わったときだけ `lms-bot.service` を再起動（DBマイグレーションは起動時に適用）
+4. `scripts/register-commands.ts` が変わったときはDiscordのスラッシュコマンドも再登録
+
+検証に失敗したコミットは反映せず、旧版のまま動き続けます。同じコミットは再試行しないので、修正をpushしてください。サーバー上で追跡ファイルを直接編集している場合や、force pushで履歴が早送りできない場合も更新を止めます。更新は専用ユーザー `lms-bot-deploy` が行い、`/etc/lms-bot.env` の秘密値は読みません。`deploy/systemd/` と `deploy/install.sh` の変更だけは自動適用しないので、ログの案内に従って `sudo bash deploy/install.sh` を実行してください。
+
+初回だけ、ソースアーカイブで配置したディレクトリをgitのcloneへ切り替えます。元のディレクトリは `/opt/science-tokyo-lms-discord-bot.before-git-日時` に残ります。Node.jsの場所は既存の `lms-bot.service` から引き継ぎます。
+
+```bash
+sudo apt install git
+git clone https://github.com/shun1269/isct-LMS-Discord-Bot.git ~/lms-bot-setup
+sudo bash ~/lms-bot-setup/deploy/enable-auto-update.sh
+rm -rf ~/lms-bot-setup
+```
+
+確認・手動実行：
+
+```bash
+systemctl list-timers lms-bot-update.timer --no-pager
+sudo journalctl -u lms-bot-update.service -n 50 --no-pager
+sudo systemctl start lms-bot-update.service
+```
+
+一時的に止める場合は `sudo systemctl disable --now lms-bot-update.timer` を実行します。
+
 ## Tampermonkey
 
 `userscript/science-tokyo-lms-sync.user.js` の内容で、インストール済みスクリプトを更新してください。
