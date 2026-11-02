@@ -1,4 +1,5 @@
-import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, UpcomingCounts } from "./types";
+import type { Database, PreparedStatement } from "./database.js";
+import type { AssignmentInput, AssignmentRecord, ReminderType, SyncPayload, SyncRun, UpcomingCounts } from "./types.js";
 
 const UPSERT_SQL = `
   INSERT INTO assignments (
@@ -20,7 +21,7 @@ const UPSERT_SQL = `
     is_active = 1
 `;
 
-function upsertStatement(db: D1Database, assignment: AssignmentInput, nowIso: string): D1PreparedStatement {
+function upsertStatement(db: Database, assignment: AssignmentInput, nowIso: string): PreparedStatement {
   return db.prepare(UPSERT_SQL).bind(
     assignment.source, assignment.eventId, assignment.courseModuleId,
     assignment.course, assignment.courseJa, assignment.title,
@@ -29,9 +30,9 @@ function upsertStatement(db: D1Database, assignment: AssignmentInput, nowIso: st
   );
 }
 
-export async function syncAssignments(db: D1Database, payload: SyncPayload, now = new Date()): Promise<{ received: number; active: number }> {
+export async function syncAssignments(db: Database, payload: SyncPayload, now = new Date()): Promise<{ received: number; active: number }> {
   const nowIso = now.toISOString();
-  const statements: D1PreparedStatement[] = [];
+  const statements: PreparedStatement[] = [];
 
   if (payload.complete) {
     statements.push(db.prepare("UPDATE assignments SET is_active = 0 WHERE source = ?").bind(payload.source));
@@ -63,7 +64,7 @@ function mapAssignment(row: Record<string, unknown>): AssignmentRecord {
   };
 }
 
-export async function listUpcomingAssignments(db: D1Database, nowUnix: number, untilUnix: number, limit = 50): Promise<AssignmentRecord[]> {
+export async function listUpcomingAssignments(db: Database, nowUnix: number, untilUnix: number, limit = 50): Promise<AssignmentRecord[]> {
   const { results } = await db.prepare(`
     SELECT * FROM assignments
     WHERE is_active = 1 AND deadline_unix >= ? AND deadline_unix <= ?
@@ -72,7 +73,7 @@ export async function listUpcomingAssignments(db: D1Database, nowUnix: number, u
   return results.map(mapAssignment);
 }
 
-export async function listReminderCandidates(db: D1Database, nowUnix: number, untilUnix: number): Promise<AssignmentRecord[]> {
+export async function listReminderCandidates(db: Database, nowUnix: number, untilUnix: number): Promise<AssignmentRecord[]> {
   const { results } = await db.prepare(`
     SELECT * FROM assignments
     WHERE is_active = 1 AND deadline_unix > ? AND deadline_unix <= ?
@@ -81,7 +82,7 @@ export async function listReminderCandidates(db: D1Database, nowUnix: number, un
   return results.map(mapAssignment);
 }
 
-export async function getLastSync(db: D1Database): Promise<SyncRun | null> {
+export async function getLastSync(db: Database): Promise<SyncRun | null> {
   const row = await db.prepare(`
     SELECT source, synced_at, received_count, complete
     FROM sync_runs ORDER BY id DESC LIMIT 1
@@ -93,7 +94,7 @@ export async function getLastSync(db: D1Database): Promise<SyncRun | null> {
   };
 }
 
-export async function countUpcomingAssignments(db: D1Database, nowUnix: number): Promise<UpcomingCounts> {
+export async function countUpcomingAssignments(db: Database, nowUnix: number): Promise<UpcomingCounts> {
   const row = await db.prepare(`
     SELECT
       SUM(CASE WHEN deadline_unix <= ? THEN 1 ELSE 0 END) AS within_24_hours,
@@ -109,7 +110,7 @@ export async function countUpcomingAssignments(db: D1Database, nowUnix: number):
   };
 }
 
-export async function claimReminder(db: D1Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<boolean> {
+export async function claimReminder(db: Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<boolean> {
   const staleIso = new Date(now.getTime() - 15 * 60_000).toISOString();
   await db.prepare("DELETE FROM reminder_logs WHERE status = 'pending' AND claimed_at <= ?").bind(staleIso).run();
   const result = await db.prepare(`
@@ -120,14 +121,14 @@ export async function claimReminder(db: D1Database, assignment: AssignmentRecord
   return (result.meta.changes ?? 0) > 0;
 }
 
-export async function markReminderSent(db: D1Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<void> {
+export async function markReminderSent(db: Database, assignment: AssignmentRecord, reminderType: ReminderType, now: Date): Promise<void> {
   await db.prepare(`
     UPDATE reminder_logs SET status = 'sent', sent_at = ?, last_error = NULL
     WHERE source = ? AND event_id = ? AND deadline_unix = ? AND reminder_type = ? AND status = 'pending'
   `).bind(now.toISOString(), assignment.source, assignment.eventId, assignment.deadlineUnix, reminderType).run();
 }
 
-export async function releaseReminderClaim(db: D1Database, assignment: AssignmentRecord, reminderType: ReminderType): Promise<void> {
+export async function releaseReminderClaim(db: Database, assignment: AssignmentRecord, reminderType: ReminderType): Promise<void> {
   await db.prepare(`
     DELETE FROM reminder_logs
     WHERE source = ? AND event_id = ? AND deadline_unix = ? AND reminder_type = ? AND status = 'pending'

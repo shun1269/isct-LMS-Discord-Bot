@@ -1,6 +1,6 @@
-import type { Env } from "./env";
-import { syncAssignments } from "./repository";
-import { syncPayloadSchema } from "./schemas";
+import type { Env } from "./env.js";
+import { syncAssignments } from "./repository.js";
+import { syncPayloadSchema } from "./schemas.js";
 
 const MAX_BODY_BYTES = 256 * 1024;
 

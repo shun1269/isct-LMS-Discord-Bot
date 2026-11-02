@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { env } from "cloudflare:test";
-import { handleInteraction } from "../src/discord-interactions";
-import { syncAssignments } from "../src/repository";
-import { assignment, resetDatabase } from "./helpers";
+import { env } from "./helpers.js";
+import { handleInteraction } from "../src/discord-interactions.js";
+import { syncAssignments } from "../src/repository.js";
+import { assignment, resetDatabase } from "./helpers.js";
 
 const workerEnv = () => ({ ...env, DISCORD_PUBLIC_KEY: "public" } as Parameters<typeof handleInteraction>[1]);
 function request(body: unknown) { return new Request("https://x/discord/interactions", { method: "POST", headers: { "x-signature-ed25519": "sig", "x-signature-timestamp": "time" }, body: JSON.stringify(body) }); }

@@ -5,7 +5,7 @@ import type {
   UpcomingCounts,
   UrgencyLevel,
   UrgencyStyle,
-} from "./types";
+} from "./types.js";
 
 export interface DiscordEmbed { title?: string; description?: string; color?: number; timestamp?: string }
 export interface AllowedMentions { parse: string[]; users?: string[]; roles?: string[] }
